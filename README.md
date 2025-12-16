@@ -62,6 +62,16 @@ And the code is organized as this:
 
 The application follows a 4-layer Domain-Driven Design architecture that cleanly separates concerns and maintains a consistent domain model regardless of the API type (REST or GraphQL).
 
+## What is Domain-Driven Design (DDD)?
+
+Domain-Driven Design is a software development approach introduced by Eric Evans in his 2003 book "Domain-Driven Design: Tackling Complexity in the Heart of Software." The core philosophy is that the structure and language of your code should match the business domain it serves. Rather than organizing code around technical concerns (like databases, frameworks, or UI), DDD organizes code around the business concepts and rules that define what the software actually does.
+
+In DDD, the domain model is the central artifact. It represents the business concepts, rules, and logic in code form. The domain model should be developed in close collaboration with domain experts (people who understand the business) and should use the same language they use, known as the Ubiquitous Language. This shared vocabulary ensures that developers and business stakeholders can communicate effectively and that the code accurately reflects business requirements.
+
+DDD introduces several key concepts that this application implements. Entities are objects with a distinct identity that persists over time, like User and Article in this codebase. Value Objects are immutable objects defined by their attributes rather than identity, such as a Tag. Aggregates are clusters of entities and value objects treated as a single unit for data changes, with one entity serving as the Aggregate Root. Repositories provide an abstraction for data access, allowing the domain layer to remain ignorant of persistence details. Domain Services contain business logic that doesn't naturally fit within an entity.
+
+The strategic design aspect of DDD involves organizing large systems into Bounded Contexts, each with its own domain model and ubiquitous language. While this application is small enough to be a single bounded context, the layered architecture demonstrates how DDD principles create maintainable, testable code that can evolve with changing business requirements.
+
 ## Layer Overview
 
 The API Layer (Adapters) contains REST controllers like UsersApi, ArticleApi, and CommentsApi, as well as GraphQL resolvers using the DGS framework. This layer handles HTTP requests, input validation, and response formatting. Security configuration and JWT token filtering also reside here.
