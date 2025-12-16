@@ -25,7 +25,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 @SpringBootTest(
@@ -76,30 +78,41 @@ public class GraphQLContextTest extends GraphQLTestBase {
             authorProfileData);
   }
 
-  @Test
-  public void should_resolve_article_with_nested_author_profile() {
-    when(articleQueryService.findBySlug(eq("test-article"), any()))
-        .thenReturn(Optional.of(articleData));
-    when(profileQueryService.findByUsername(eq("authoruser"), any()))
-        .thenReturn(Optional.of(authorProfileData));
+    @Test
+    public void should_resolve_article_with_nested_author_profile() {
+      when(articleQueryService.findBySlug(eq("test-article"), any()))
+          .thenReturn(Optional.of(articleData));
+      when(profileQueryService.findByUsername(eq("authoruser"), any()))
+          .thenReturn(Optional.of(authorProfileData));
 
-    String query =
-        "query { article(slug: \"test-article\") { slug title author { username bio following } } }";
+      SecurityContextHolder.getContext()
+          .setAuthentication(
+              new AnonymousAuthenticationToken(
+                  "anonymous",
+                  "anonymousUser",
+                  Collections.singletonList(new SimpleGrantedAuthority("ROLE_ANONYMOUS"))));
 
-    DocumentContext result = dgsQueryExecutor.executeAndGetDocumentContext(query);
+      String query =
+          "query { article(slug: \"test-article\") { slug title author { username bio following } } }";
 
-    String slug = result.read("$.data.article.slug");
-    String title = result.read("$.data.article.title");
-    String authorUsername = result.read("$.data.article.author.username");
-    String authorBio = result.read("$.data.article.author.bio");
-    Boolean following = result.read("$.data.article.author.following");
+      try {
+        DocumentContext result = dgsQueryExecutor.executeAndGetDocumentContext(query);
 
-    assertThat(slug).isEqualTo("test-article");
-    assertThat(title).isEqualTo("Test Article");
-    assertThat(authorUsername).isEqualTo("authoruser");
-    assertThat(authorBio).isEqualTo("Author bio");
-    assertThat(following).isFalse();
-  }
+        String slug = result.read("$.data.article.slug");
+        String title = result.read("$.data.article.title");
+        String authorUsername = result.read("$.data.article.author.username");
+        String authorBio = result.read("$.data.article.author.bio");
+        Boolean following = result.read("$.data.article.author.following");
+
+        assertThat(slug).isEqualTo("test-article");
+        assertThat(title).isEqualTo("Test Article");
+        assertThat(authorUsername).isEqualTo("authoruser");
+        assertThat(authorBio).isEqualTo("Author bio");
+        assertThat(following).isFalse();
+      } finally {
+        SecurityContextHolder.clearContext();
+      }
+    }
 
   @Test
   public void should_resolve_author_following_status_from_local_context() {
@@ -152,34 +165,45 @@ public class GraphQLContextTest extends GraphQLTestBase {
     when(profileQueryService.findByUsername(eq("authoruser"), any()))
         .thenReturn(Optional.of(authorProfileData));
 
+    SecurityContextHolder.getContext()
+        .setAuthentication(
+            new AnonymousAuthenticationToken(
+                "anonymous",
+                "anonymousUser",
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_ANONYMOUS"))));
+
     String query =
         "query { article(slug: \"test-article\") { slug title description body favorited "
             + "favoritesCount tagList author { username bio image following } } }";
 
-    DocumentContext result = dgsQueryExecutor.executeAndGetDocumentContext(query);
+    try {
+      DocumentContext result = dgsQueryExecutor.executeAndGetDocumentContext(query);
 
-    String slug = result.read("$.data.article.slug");
-    String title = result.read("$.data.article.title");
-    String description = result.read("$.data.article.description");
-    String body = result.read("$.data.article.body");
-    Boolean favorited = result.read("$.data.article.favorited");
-    Integer favoritesCount = result.read("$.data.article.favoritesCount");
+      String slug = result.read("$.data.article.slug");
+      String title = result.read("$.data.article.title");
+      String description = result.read("$.data.article.description");
+      String body = result.read("$.data.article.body");
+      Boolean favorited = result.read("$.data.article.favorited");
+      Integer favoritesCount = result.read("$.data.article.favoritesCount");
 
-    assertThat(slug).isEqualTo("test-article");
-    assertThat(title).isEqualTo("Test Article");
-    assertThat(description).isEqualTo("Description");
-    assertThat(body).isEqualTo("Body");
-    assertThat(favorited).isFalse();
-    assertThat(favoritesCount).isEqualTo(5);
+      assertThat(slug).isEqualTo("test-article");
+      assertThat(title).isEqualTo("Test Article");
+      assertThat(description).isEqualTo("Description");
+      assertThat(body).isEqualTo("Body");
+      assertThat(favorited).isFalse();
+      assertThat(favoritesCount).isEqualTo(5);
 
-    String authorUsername = result.read("$.data.article.author.username");
-    String authorBio = result.read("$.data.article.author.bio");
-    String authorImage = result.read("$.data.article.author.image");
-    Boolean following = result.read("$.data.article.author.following");
+      String authorUsername = result.read("$.data.article.author.username");
+      String authorBio = result.read("$.data.article.author.bio");
+      String authorImage = result.read("$.data.article.author.image");
+      Boolean following = result.read("$.data.article.author.following");
 
-    assertThat(authorUsername).isEqualTo("authoruser");
-    assertThat(authorBio).isEqualTo("Author bio");
-    assertThat(authorImage).isEqualTo(defaultAvatar);
-    assertThat(following).isFalse();
+      assertThat(authorUsername).isEqualTo("authoruser");
+      assertThat(authorBio).isEqualTo("Author bio");
+      assertThat(authorImage).isEqualTo(defaultAvatar);
+      assertThat(following).isFalse();
+    } finally {
+      SecurityContextHolder.clearContext();
+    }
   }
 }

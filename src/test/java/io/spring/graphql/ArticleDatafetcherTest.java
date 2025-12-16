@@ -15,9 +15,7 @@ import io.spring.application.CursorPager;
 import io.spring.application.CursorPager.Direction;
 import io.spring.application.data.ArticleData;
 import io.spring.application.data.ProfileData;
-import io.spring.core.user.UserRepository;
 import io.spring.graphql.exception.GraphQLCustomizeExceptionHandler;
-import io.spring.infrastructure.repository.MyBatisArticleRepository;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -29,10 +27,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-@SpringBootTest(classes = {DgsAutoConfiguration.class, ArticleDatafetcher.class, ProfileDatafetcher.class})
+@SpringBootTest(
+    classes = {DgsAutoConfiguration.class, ArticleDatafetcher.class, ProfileDatafetcher.class})
 @Import({
   WebSecurityConfig.class,
   JwtTokenFilter.class,
@@ -107,35 +108,45 @@ public class ArticleDatafetcherTest extends GraphQLTestBase {
   @Test
   public void should_get_articles_with_pagination() {
     List<ArticleData> articles = Arrays.asList(articleData1, articleData2, articleData3);
-    CursorPager<ArticleData> cursorPager =
-        new CursorPager<>(articles, Direction.NEXT, true);
+    CursorPager<ArticleData> cursorPager = new CursorPager<>(articles, Direction.NEXT, true);
 
     when(articleQueryService.findRecentArticlesWithCursor(any(), any(), any(), any(), any()))
         .thenReturn(cursorPager);
+
+    SecurityContextHolder.getContext()
+        .setAuthentication(
+            new AnonymousAuthenticationToken(
+                "anonymous",
+                "anonymousUser",
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_ANONYMOUS"))));
 
     String query =
         "query { articles(first: 3) { edges { cursor node { slug title description } } "
             + "pageInfo { hasNextPage hasPreviousPage startCursor endCursor } } }";
 
-    DocumentContext result = dgsQueryExecutor.executeAndGetDocumentContext(query);
+    try {
+      DocumentContext result = dgsQueryExecutor.executeAndGetDocumentContext(query);
 
-    List<Object> edges = result.read("$.data.articles.edges");
-    assertThat(edges).hasSize(3);
+      List<Object> edges = result.read("$.data.articles.edges");
+      assertThat(edges).hasSize(3);
 
-    String firstSlug = result.read("$.data.articles.edges[0].node.slug");
-    assertThat(firstSlug).isEqualTo("test-article-1");
+      String firstSlug = result.read("$.data.articles.edges[0].node.slug");
+      assertThat(firstSlug).isEqualTo("test-article-1");
 
-    Boolean hasNextPage = result.read("$.data.articles.pageInfo.hasNextPage");
-    assertThat(hasNextPage).isTrue();
+      Boolean hasNextPage = result.read("$.data.articles.pageInfo.hasNextPage");
+      assertThat(hasNextPage).isTrue();
 
-    Boolean hasPreviousPage = result.read("$.data.articles.pageInfo.hasPreviousPage");
-    assertThat(hasPreviousPage).isFalse();
+      Boolean hasPreviousPage = result.read("$.data.articles.pageInfo.hasPreviousPage");
+      assertThat(hasPreviousPage).isFalse();
 
-    String startCursor = result.read("$.data.articles.pageInfo.startCursor");
-    assertThat(startCursor).isNotNull();
+      String startCursor = result.read("$.data.articles.pageInfo.startCursor");
+      assertThat(startCursor).isNotNull();
 
-    String endCursor = result.read("$.data.articles.pageInfo.endCursor");
-    assertThat(endCursor).isNotNull();
+      String endCursor = result.read("$.data.articles.pageInfo.endCursor");
+      assertThat(endCursor).isNotNull();
+    } finally {
+      SecurityContextHolder.clearContext();
+    }
   }
 
   @Test
@@ -143,27 +154,37 @@ public class ArticleDatafetcherTest extends GraphQLTestBase {
     when(articleQueryService.findBySlug(eq("test-article-1"), any()))
         .thenReturn(Optional.of(articleData1));
 
+    SecurityContextHolder.getContext()
+        .setAuthentication(
+            new AnonymousAuthenticationToken(
+                "anonymous",
+                "anonymousUser",
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_ANONYMOUS"))));
+
     String query =
         "query { article(slug: \"test-article-1\") { slug title description body tagList favorited favoritesCount } }";
 
-    DocumentContext result = dgsQueryExecutor.executeAndGetDocumentContext(query);
+    try {
+      DocumentContext result = dgsQueryExecutor.executeAndGetDocumentContext(query);
 
-    String slug = result.read("$.data.article.slug");
-    String title = result.read("$.data.article.title");
-    String description = result.read("$.data.article.description");
-    String body = result.read("$.data.article.body");
+      String slug = result.read("$.data.article.slug");
+      String title = result.read("$.data.article.title");
+      String description = result.read("$.data.article.description");
+      String body = result.read("$.data.article.body");
 
-    assertThat(slug).isEqualTo("test-article-1");
-    assertThat(title).isEqualTo("Test Article 1");
-    assertThat(description).isEqualTo("Description 1");
-    assertThat(body).isEqualTo("Body 1");
+      assertThat(slug).isEqualTo("test-article-1");
+      assertThat(title).isEqualTo("Test Article 1");
+      assertThat(description).isEqualTo("Description 1");
+      assertThat(body).isEqualTo("Body 1");
+    } finally {
+      SecurityContextHolder.clearContext();
+    }
   }
 
   @Test
   public void should_get_feed_with_authentication() {
     List<ArticleData> articles = Arrays.asList(articleData1, articleData2);
-    CursorPager<ArticleData> cursorPager =
-        new CursorPager<>(articles, Direction.NEXT, false);
+    CursorPager<ArticleData> cursorPager = new CursorPager<>(articles, Direction.NEXT, false);
 
     when(articleQueryService.findUserFeedWithCursor(any(), any())).thenReturn(cursorPager);
 

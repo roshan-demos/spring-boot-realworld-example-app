@@ -30,7 +30,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 @SpringBootTest(
@@ -108,19 +110,26 @@ public class ArticleMutationTest extends GraphQLTestBase {
     }
   }
 
-  @Test
-  public void should_fail_create_article_without_authentication() {
-    SecurityContextHolder.clearContext();
+        @Test
+      public void should_fail_create_article_without_authentication() {
+        SecurityContextHolder.getContext()
+            .setAuthentication(
+                new AnonymousAuthenticationToken(
+                    "anonymous",
+                    "anonymousUser",
+                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_ANONYMOUS"))));
 
-    String query =
-        "mutation { createArticle(input: { title: \"Test\", description: \"Test\", body: \"Test\" }) "
-            + "{ article { title } } }";
+        String query =
+            "mutation { createArticle(input: { title: \"Test\", description: \"Test\", body: \"Test\" }) "
+                + "{ article { title } } }";
 
-    DocumentContext result = dgsQueryExecutor.executeAndGetDocumentContext(query);
-    Object errors = result.read("$.errors");
-
-    assertThat(errors).isNotNull();
-  }
+        try {
+          graphql.ExecutionResult result = dgsQueryExecutor.execute(query);
+          assertThat(result.getErrors()).isNotEmpty();
+        } finally {
+          SecurityContextHolder.clearContext();
+        }
+      }
 
   @Test
   public void should_favorite_article_and_update_count() {
